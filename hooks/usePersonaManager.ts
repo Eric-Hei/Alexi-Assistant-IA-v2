@@ -105,7 +105,7 @@ export const usePersonaManager = () => {
   const loadData = useCallback(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      let defaultId = DEFAULT_PERSONAS[0].id;
+      let defaultId = 'assistant-locataire'; // Assistant locataire par défaut
 
       // Check for stored default persona preference
       const storedDefaultId = localStorage.getItem('alexi-default-persona');
@@ -152,10 +152,10 @@ export const usePersonaManager = () => {
       console.error('Error loading persona data:', error);
       const fallbackPersonas = DEFAULT_PERSONAS.map(p => ({
         ...p,
-        isDefault: p.id === DEFAULT_PERSONAS[0].id,
+        isDefault: p.id === 'assistant-locataire',
       }));
       setPersonas(fallbackPersonas);
-      setDefaultPersonaId(DEFAULT_PERSONAS[0].id);
+      setDefaultPersonaId('assistant-locataire');
     } finally {
       setLoading(false);
     }
