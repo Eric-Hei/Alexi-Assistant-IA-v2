@@ -1,7 +1,7 @@
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { GoogleGenAI, Chat } from '@google/genai';
-import { Message, Role, Persona, PersonaFormData } from './types';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Message, Role, Persona, PersonaFormData, PersonaCategory } from './types';
+import { albertApi } from './src/services/albertApi';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import MessageInput from './components/MessageInput';
@@ -13,13 +13,11 @@ const App: React.FC = () => {
   // Persona management
   const {
     personas,
-    defaultPersonaId,
     loading: personasLoading,
     createPersona,
     updatePersona,
     deletePersona,
     setDefaultPersona,
-    duplicatePersona,
     getDefaultPersona,
   } = usePersonaManager();
 
@@ -33,7 +31,7 @@ const App: React.FC = () => {
 
   // App state
   const [currentPersona, setCurrentPersona] = useState<Persona | null>(null);
-  const [chatSession, setChatSession] = useState<Chat | null>(null);
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,26 +43,9 @@ const App: React.FC = () => {
 
   // Initialize chat with a persona
   const initializeChat = useCallback((persona: Persona) => {
+    setCurrentPersona(persona);
+    setMessages([]);
     setError(null);
-    try {
-      if (!process.env.API_KEY) {
-        throw new Error("API_KEY environment variable not set.");
-      }
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const newChatSession = ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: {
-          systemInstruction: persona.prompt,
-        },
-      });
-      setCurrentPersona(persona);
-      setChatSession(newChatSession);
-      setMessages([]);
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-      console.error("Chat initialization failed:", errorMessage);
-      setError(`Failed to initialize chatbot. Please check your API key and configuration. Details: ${errorMessage}`);
-    }
   }, []);
 
   // Switch to a different persona
@@ -76,32 +57,84 @@ const App: React.FC = () => {
   }, [currentPersona, initializeChat]);
 
   const handleSendMessage = async (text: string) => {
-    if (!chatSession || isLoading) return;
+    if (!currentPersona || isLoading) {
+      setError('Aucun assistant sélectionné. Veuillez d\'abord choisir un assistant.');
+      return;
+    }
 
-    const userMessage: Message = { role: Role.USER, text };
+    const userMessage: Message = {
+      role: Role.USER,
+      text,
+      id: Date.now().toString(),
+      timestamp: new Date()
+    };
+
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setError(null);
 
     try {
-      const stream = await chatSession.sendMessageStream({ message: text });
-      let modelResponse = '';
-      setMessages(prev => [...prev, { role: Role.MODEL, text: '' }]);
+      // Prepare conversation history for Albert API
+      const conversationHistory = messages.map((msg: Message) => ({
+        role: msg.role === Role.USER ? 'user' as const : 'assistant' as const,
+        content: msg.text
+      }));
 
-      for await (const chunk of stream) {
-        modelResponse += chunk.text;
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1].text = modelResponse;
-          return newMessages;
-        });
+      // Intercepter les logs pour détecter les tentatives de retry
+      const originalLog = console.log;
+      const originalWarn = console.warn;
+      let retryCount = 0;
+
+      console.log = (...args: any[]) => {
+        const message = args.join(' ');
+        if (message.includes('Tentative') && message.includes('Albert API')) {
+          const match = message.match(/Tentative (\d+)\/(\d+)/);
+          if (match) {
+            retryCount = parseInt(match[1]);
+            if (retryCount > 1) {
+              setError(`🔄 Nouvelle tentative ${retryCount}/3 avec Albert...`);
+            }
+          }
+        }
+        originalLog(...args);
+      };
+
+      console.warn = (...args: any[]) => {
+        const message = args.join(' ');
+        if (message.includes('Erreur 500') && message.includes('nouvelle tentative')) {
+          setError('⚠️ Albert temporairement indisponible, nouvelle tentative...');
+        }
+        originalWarn(...args);
+      };
+
+      // Send message using Albert API service
+      const responseText = await albertApi.sendMessage(
+        currentPersona.prompt,
+        conversationHistory,
+        text
+      );
+
+      // Restaurer les logs originaux
+      console.log = originalLog;
+      console.warn = originalWarn;
+
+      // Effacer le message d'erreur de retry si tout s'est bien passé
+      if (retryCount > 1) {
+        setError('');
       }
+
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: Role.ASSISTANT,
+        text: responseText,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev: Message[]) => [...prev, aiMessage]);
     } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred during message streaming.';
-        console.error("Error sending message:", errorMessage);
-        setError(`Sorry, something went wrong. ${errorMessage}`);
-        // Remove the empty model message placeholder on error
-        setMessages(prev => prev.filter((msg, index) => !(index === prev.length - 1 && msg.role === Role.MODEL && msg.text === '')));
+      const errorMessage = e instanceof Error ? e.message : 'Une erreur inconnue s\'est produite.';
+      console.error("Erreur lors de l'envoi du message:", errorMessage);
+      setError(`Désolé, quelque chose s'est mal passé. ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +198,7 @@ const App: React.FC = () => {
           name: persona.name,
           prompt: persona.prompt,
           description: persona.description,
-          category: persona.category,
+          category: persona.category as PersonaCategory,
           color: persona.color,
           icon: persona.icon,
         });
@@ -279,7 +312,7 @@ const App: React.FC = () => {
         )}
 
         {/* Chat Area */}
-        {chatSession ? (
+        {currentPersona ? (
           <>
             <ChatWindow messages={messages} isLoading={isLoading} />
             <MessageInput
@@ -291,10 +324,25 @@ const App: React.FC = () => {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
+            <div className="text-center max-w-2xl px-6">
               <div className="text-6xl mb-4">🤖</div>
               <h2 className="text-2xl font-bold text-white mb-2">Bienvenue dans Alexi Assistant</h2>
-              <p className="text-gray-400">Sélectionnez un assistant dans la barre latérale pour commencer à discuter</p>
+              <p className="text-gray-400 mb-4">Sélectionnez un assistant dans la barre latérale pour commencer à discuter</p>
+
+              <div className="bg-green-900/30 border border-green-500/30 rounded-lg p-4 text-sm text-green-200">
+                <div className="flex items-center justify-center mb-2">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <strong>API Albert d'Etalab - Prêt !</strong>
+                </div>
+                <p className="mb-2">
+                  ✅ Serveur proxy actif • ✅ Modèle albert-large (Mistral-Small-3.2-24B)
+                </p>
+                <p className="text-xs text-green-300">
+                  Sélectionnez un assistant et commencez à discuter avec l'IA française !
+                </p>
+              </div>
             </div>
           </div>
         )}

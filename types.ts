@@ -1,11 +1,13 @@
 export enum Role {
   USER = 'user',
-  MODEL = 'model',
+  ASSISTANT = 'assistant',
 }
 
 export interface Message {
+  id: string;
   role: Role;
   text: string;
+  timestamp: Date;
 }
 
 // Extended Persona interface with additional metadata
