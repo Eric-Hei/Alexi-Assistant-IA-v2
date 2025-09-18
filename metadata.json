@@ -1,0 +1,5 @@
+{
+  "name": "Specializable Chatbot",
+  "description": "A text-based chat application where you can define the chatbot's personality and expertise using a system instruction.",
+  "requestFramePermissions": []
+}
