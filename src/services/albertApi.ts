@@ -35,7 +35,7 @@ export interface AlbertChatResponse {
 }
 
 const ALBERT_API_BASE_URL = import.meta.env.VITE_ALBERT_API_BASE_URL || 'http://localhost:3001/api/albert';
-const ALBERT_API_KEY = import.meta.env.VITE_ALBERT_API_KEY;
+// La clé API est maintenant gérée côté serveur proxy pour plus de sécurité
 
 // Available models (based on API response)
 export const ALBERT_MODELS = {
@@ -46,14 +46,9 @@ export const ALBERT_MODELS = {
 } as const;
 
 export class AlbertApiService {
-  private apiKey: string;
   private baseUrl: string;
 
-  constructor(apiKey: string = ALBERT_API_KEY, baseUrl: string = ALBERT_API_BASE_URL) {
-    if (!apiKey) {
-      throw new Error('VITE_ALBERT_API_KEY environment variable is required');
-    }
-    this.apiKey = apiKey;
+  constructor(baseUrl: string = ALBERT_API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
@@ -71,7 +66,7 @@ export class AlbertApiService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
+            // L'autorisation est maintenant gérée par le proxy serveur
           },
           body: JSON.stringify({
             model: request.model || ALBERT_MODELS.ALBERT_LARGE,

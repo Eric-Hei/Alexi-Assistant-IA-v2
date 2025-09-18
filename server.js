@@ -5,6 +5,15 @@ import fetch from 'node-fetch';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Configuration Albert API
+const ALBERT_API_KEY = process.env.ALBERT_API_KEY;
+const ALBERT_API_URL = 'https://albert.api.etalab.gouv.fr';
+
+if (!ALBERT_API_KEY) {
+  console.error('❌ ALBERT_API_KEY environment variable is required');
+  process.exit(1);
+}
+
 // Configuration CORS
 app.use(cors({
   origin: [
@@ -22,9 +31,10 @@ app.get('/api/albert/v1/models', async (req, res) => {
   try {
     console.log('Requête pour les modèles Albert');
 
-    const response = await fetch('https://albert.api.etalab.gouv.fr/v1/models', {
+    const response = await fetch(`${ALBERT_API_URL}/v1/models`, {
       headers: {
-        'Authorization': req.headers.authorization,
+        'Authorization': `Bearer ${ALBERT_API_KEY}`,
+        'Content-Type': 'application/json',
       }
     });
 
@@ -65,12 +75,12 @@ app.get('/api/albert/v1/models', async (req, res) => {
 app.post('/api/albert/v1/chat/completions', async (req, res) => {
   try {
     console.log('Requête reçue pour Albert API:', req.body);
-    
-    const response = await fetch('https://albert.api.etalab.gouv.fr/v1/chat/completions', {
+
+    const response = await fetch(`${ALBERT_API_URL}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': req.headers.authorization,
+        'Authorization': `Bearer ${ALBERT_API_KEY}`,
       },
       body: JSON.stringify(req.body)
     });
