@@ -17,11 +17,11 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({
   const [importError, setImportError] = useState('');
 
   const handleExport = () => {
-    const customPersonas = personas.filter(p => p.isCustom);
+    // Exporter TOUS les assistants (par défaut et personnalisés)
     const exportData = {
       version: '1.0',
       exportDate: new Date().toISOString(),
-      personas: customPersonas,
+      personas: personas,
     };
     
     const blob = new Blob([JSON.stringify(exportData, null, 2)], {

@@ -13,6 +13,7 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   onImportPersonas?: (personas: Persona[]) => void;
   onExportPersonas?: () => void;
+  onCloudSync?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -26,6 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
   onImportPersonas,
   onExportPersonas,
+  onCloudSync,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<PersonaCategory | 'all'>('all');
@@ -254,13 +256,28 @@ const Sidebar: React.FC<SidebarProps> = ({
           <span>{showAdvanced ? 'Masquer' : 'Afficher'} les options</span>
         </button>
 
-        {showAdvanced && onImportPersonas && onExportPersonas && (
-          <div className="pt-2">
-            <CategoryManager
-              personas={personas}
-              onImportPersonas={onImportPersonas}
-              onExportPersonas={onExportPersonas}
-            />
+        {showAdvanced && (
+          <div className="pt-2 space-y-3">
+            {onImportPersonas && onExportPersonas && (
+              <CategoryManager
+                personas={personas}
+                onImportPersonas={onImportPersonas}
+                onExportPersonas={onExportPersonas}
+              />
+            )}
+
+            {onCloudSync && (
+              <button
+                onClick={onCloudSync}
+                className="w-full flex items-center space-x-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors duration-200"
+                title="Synchronisation cloud"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span>Synchronisation Cloud</span>
+              </button>
+            )}
           </div>
         )}
       </div>

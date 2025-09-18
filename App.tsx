@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import MessageInput from './components/MessageInput';
 import PersonaModal from './components/PersonaModal';
+import CloudSync from './components/CloudSync';
 import { usePersonaManager } from './hooks/usePersonaManager';
 import { useSettings } from './hooks/useSettings';
 
@@ -20,6 +21,8 @@ const App: React.FC = () => {
     setDefaultPersona,
     getDefaultPersona,
   } = usePersonaManager();
+
+
 
   // Settings management
   const {
@@ -40,6 +43,7 @@ const App: React.FC = () => {
   // Modal state
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+  const [cloudSyncOpen, setCloudSyncOpen] = useState<boolean>(false);
 
   // Initialize chat with a persona
   const initializeChat = useCallback((persona: Persona) => {
@@ -55,6 +59,12 @@ const App: React.FC = () => {
     // Save current chat state if needed (future feature)
     initializeChat(persona);
   }, [currentPersona, initializeChat]);
+
+  // Start a new conversation with the same persona
+  const handleNewConversation = () => {
+    setMessages([]);
+    setError(null);
+  };
 
   const handleSendMessage = async (text: string) => {
     if (!currentPersona || isLoading) {
@@ -166,6 +176,33 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCloudSync = () => {
+    setCloudSyncOpen(true);
+  };
+
+  const handleCloseCloudSync = () => {
+    setCloudSyncOpen(false);
+  };
+
+  const handleImportFromCloud = async (importedPersonas: Persona[]) => {
+    try {
+      for (const persona of importedPersonas) {
+        await createPersona({
+          name: persona.name,
+          prompt: persona.prompt,
+          description: persona.description,
+          category: persona.category as PersonaCategory,
+          color: persona.color,
+          icon: persona.icon,
+        });
+      }
+      setError('');
+    } catch (error) {
+      console.error('Error importing personas from cloud:', error);
+      setError('Erreur lors de l\'importation depuis le cloud');
+    }
+  };
+
   const handleDeletePersona = async (persona: Persona) => {
     try {
       await deletePersona(persona.id);
@@ -260,43 +297,13 @@ const App: React.FC = () => {
           onToggleCollapse={() => setSidebarCollapsed(!settings.sidebarCollapsed)}
           onImportPersonas={handleImportPersonas}
           onExportPersonas={handleExportPersonas}
+          onCloudSync={handleCloudSync}
         />
       )}
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Header */}
-        <header className="bg-gray-800 p-4 shadow-md border-b border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 md:ml-0 ml-16">
-              <div className="text-2xl" role="img" aria-label={`${currentPersona?.name || 'Alexi Assistant'} icon`}>
-                {currentPersona?.icon || '🤖'}
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">
-                  {currentPersona?.name || 'Alexi Assistant'}
-                </h1>
-                <p className="text-sm text-gray-400">
-                  {currentPersona?.description || 'AI Assistant'}
-                </p>
-              </div>
-            </div>
 
-            <div className="flex items-center space-x-2">
-              {currentPersona && (
-                <button
-                  onClick={() => handleEditPersona(currentPersona)}
-                  className="p-2 text-gray-400 hover:text-white transition-colors"
-                  title="Edit current persona"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
 
         {/* Error Display */}
         {error && (
@@ -314,7 +321,12 @@ const App: React.FC = () => {
         {/* Chat Area */}
         {currentPersona ? (
           <>
-            <ChatWindow messages={messages} isLoading={isLoading} />
+            <ChatWindow
+              messages={messages}
+              isLoading={isLoading}
+              currentPersona={currentPersona}
+              onNewConversation={handleNewConversation}
+            />
             <MessageInput
               onSendMessage={handleSendMessage}
               isLoading={isLoading}
@@ -360,6 +372,14 @@ const App: React.FC = () => {
         onDelete={handleDeletePersona}
         onSetDefault={handleSetDefaultPersona}
       />
+
+      {cloudSyncOpen && (
+        <CloudSync
+          personas={personas}
+          onImportPersonas={handleImportFromCloud}
+          onClose={handleCloseCloudSync}
+        />
+      )}
     </div>
   );
 };

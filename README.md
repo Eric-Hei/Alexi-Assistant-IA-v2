@@ -9,6 +9,10 @@ Une interface de chatbot IA moderne construite avec React, TypeScript et Vite, a
 - **Gestion complète CRUD** : Créer, modifier, supprimer des assistants
 - **Sauvegarde locale** : Vos assistants sont sauvegardés automatiquement
 - **Import/Export** : Partagez vos configurations d'assistants
+- **☁️ Synchronisation cloud** : Partagez vos assistants entre appareils via des liens
+- **🔄 Nouvelle conversation** : Redémarrez une discussion avec le même assistant
+- **📋 Copie facile** : Bouton de copie sur chaque message (visible au survol)
+- **🔁 Retry automatique** : Gestion intelligente des erreurs temporaires d'Albert
 - **Hauteur de saisie configurable** : Adaptez l'interface à vos besoins
 - **Interface entièrement en français** : Conçue pour les utilisateurs français
 - **API Albert** : Utilise l'IA française d'Etalab
@@ -65,7 +69,14 @@ L'application intègre un **système de retry automatique** pour gérer les erre
 
 ## 🔑 Configuration API Albert
 
-L'application utilise l'API Albert d'Etalab. La clé API est déjà configurée dans le code pour une utilisation immédiate.
+L'application utilise l'API Albert d'Etalab. **Pour des raisons de sécurité, vous devez configurer votre propre clé API** :
+
+1. **Obtenez votre clé API** sur https://albert.api.etalab.gouv.fr/
+2. **Copiez le fichier d'exemple** : `cp .env.example .env`
+3. **Modifiez le fichier .env** et remplacez `your_albert_api_key_here` par votre vraie clé API
+4. **Redémarrez l'application** : `npm run start`
+
+⚠️ **Important** : Ne jamais committer le fichier `.env` contenant votre vraie clé API !
 
 **API Albert** : https://albert.api.etalab.gouv.fr/
 - **Modèle par défaut** : `albert-large` (Mistral-Small-3.2-24B-Instruct)

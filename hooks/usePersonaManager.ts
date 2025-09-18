@@ -113,19 +113,23 @@ export const usePersonaManager = () => {
       if (stored) {
         const data: StorageData = JSON.parse(stored);
 
-        // Merge default personas with custom ones, ensuring defaults are always present
-        const customPersonas = data.personas.filter(p => p.isCustom);
-        const mergedPersonas = [...DEFAULT_PERSONAS, ...customPersonas];
+        // Utiliser TOUS les personas sauvegardés (par défaut ET personnalisés)
+        let allPersonas = data.personas;
+
+        // Si aucun persona sauvegardé, utiliser les personas par défaut
+        if (!allPersonas || allPersonas.length === 0) {
+          allPersonas = DEFAULT_PERSONAS;
+        }
 
         // Use stored default ID if it exists and is valid
-        if (storedDefaultId && mergedPersonas.find(p => p.id === storedDefaultId)) {
+        if (storedDefaultId && allPersonas.find(p => p.id === storedDefaultId)) {
           defaultId = storedDefaultId;
-        } else if (data.defaultPersonaId && mergedPersonas.find(p => p.id === data.defaultPersonaId)) {
+        } else if (data.defaultPersonaId && allPersonas.find(p => p.id === data.defaultPersonaId)) {
           defaultId = data.defaultPersonaId;
         }
 
         // Update isDefault flags
-        const updatedPersonas = mergedPersonas.map(p => ({
+        const updatedPersonas = allPersonas.map(p => ({
           ...p,
           isDefault: p.id === defaultId,
         }));

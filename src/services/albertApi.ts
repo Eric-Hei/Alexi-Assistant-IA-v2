@@ -34,8 +34,8 @@ export interface AlbertChatResponse {
   };
 }
 
-const ALBERT_API_BASE_URL = 'http://localhost:3001/api/albert';
-const ALBERT_API_KEY = 'sk-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjo4ODYwLCJ0b2tlbl9pZCI6MjMxNywiZXhwaXJlc19hdCI6MTc4OTY4MjQwMH0.Wla-l0pwxWAdGLAi3Vi6Kr_r4ElS9cg-Kx0gFtGPwY4';
+const ALBERT_API_BASE_URL = import.meta.env.VITE_ALBERT_API_BASE_URL || 'http://localhost:3001/api/albert';
+const ALBERT_API_KEY = import.meta.env.VITE_ALBERT_API_KEY;
 
 // Available models (based on API response)
 export const ALBERT_MODELS = {
@@ -50,6 +50,9 @@ export class AlbertApiService {
   private baseUrl: string;
 
   constructor(apiKey: string = ALBERT_API_KEY, baseUrl: string = ALBERT_API_BASE_URL) {
+    if (!apiKey) {
+      throw new Error('VITE_ALBERT_API_KEY environment variable is required');
+    }
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
   }
