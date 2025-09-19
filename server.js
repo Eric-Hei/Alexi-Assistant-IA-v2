@@ -10,8 +10,8 @@ const ALBERT_API_KEY = process.env.ALBERT_API_KEY;
 const ALBERT_API_URL = 'https://albert.api.etalab.gouv.fr';
 
 if (!ALBERT_API_KEY) {
-  console.error('❌ ALBERT_API_KEY environment variable is required');
-  process.exit(1);
+  console.warn('⚠️  ALBERT_API_KEY non trouvée en local - Le serveur proxy Railway sera utilisé');
+  console.log('ℹ️  En développement local, les requêtes passeront par le proxy Railway');
 }
 
 // Configuration CORS
@@ -30,6 +30,14 @@ app.use(express.json());
 app.get('/api/albert/v1/models', async (req, res) => {
   try {
     console.log('Requête pour les modèles Albert');
+
+    if (!ALBERT_API_KEY) {
+      return res.status(503).json({
+        error: {
+          message: 'Serveur proxy local non configuré - Utilisez le serveur Railway en production'
+        }
+      });
+    }
 
     const response = await fetch(`${ALBERT_API_URL}/v1/models`, {
       headers: {
@@ -75,6 +83,14 @@ app.get('/api/albert/v1/models', async (req, res) => {
 app.post('/api/albert/v1/chat/completions', async (req, res) => {
   try {
     console.log('Requête reçue pour Albert API:', req.body);
+
+    if (!ALBERT_API_KEY) {
+      return res.status(503).json({
+        error: {
+          message: 'Serveur proxy local non configuré - Utilisez le serveur Railway en production'
+        }
+      });
+    }
 
     const response = await fetch(`${ALBERT_API_URL}/v1/chat/completions`, {
       method: 'POST',
