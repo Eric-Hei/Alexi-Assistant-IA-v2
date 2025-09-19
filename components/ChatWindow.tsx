@@ -40,7 +40,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, currentPer
   }, [messages, isLoading, isUserScrolling]);
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       {/* Header avec bouton nouvelle conversation */}
       {currentPersona && messages.length > 0 && (
         <div className="border-b border-gray-700 p-3 flex items-center justify-between">
@@ -64,10 +64,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, currentPer
       )}
 
       {/* Zone des messages */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-h-0">
         <div
           ref={chatContainerRef}
-          className="h-full overflow-y-auto p-6 space-y-4"
+          className="h-full overflow-y-auto p-6 space-y-4 overscroll-contain"
           onScroll={handleScroll}
         >
           {messages.map((msg, index) => (

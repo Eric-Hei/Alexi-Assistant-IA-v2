@@ -302,7 +302,7 @@ const App: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex flex-col flex-1 overflow-hidden min-h-0">
 
 
         {/* Error Display */}
