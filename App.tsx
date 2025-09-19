@@ -6,7 +6,6 @@ import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import MessageInput from './components/MessageInput';
 import PersonaModal from './components/PersonaModal';
-import CloudSync from './components/CloudSync';
 import { usePersonaManager } from './hooks/usePersonaManager';
 import { useSettings } from './hooks/useSettings';
 
@@ -43,7 +42,6 @@ const App: React.FC = () => {
   // Modal state
   const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
-  const [cloudSyncOpen, setCloudSyncOpen] = useState<boolean>(false);
 
   // Initialize chat with a persona
   const initializeChat = useCallback((persona: Persona) => {
@@ -176,32 +174,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCloudSync = () => {
-    setCloudSyncOpen(true);
-  };
 
-  const handleCloseCloudSync = () => {
-    setCloudSyncOpen(false);
-  };
-
-  const handleImportFromCloud = async (importedPersonas: Persona[]) => {
-    try {
-      for (const persona of importedPersonas) {
-        await createPersona({
-          name: persona.name,
-          prompt: persona.prompt,
-          description: persona.description,
-          category: persona.category as PersonaCategory,
-          color: persona.color,
-          icon: persona.icon,
-        });
-      }
-      setError('');
-    } catch (error) {
-      console.error('Error importing personas from cloud:', error);
-      setError('Erreur lors de l\'importation depuis le cloud');
-    }
-  };
 
   const handleDeletePersona = async (persona: Persona) => {
     try {
@@ -228,28 +201,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleImportPersonas = async (importedPersonas: Persona[]) => {
-    try {
-      for (const persona of importedPersonas) {
-        await createPersona({
-          name: persona.name,
-          prompt: persona.prompt,
-          description: persona.description,
-          category: persona.category as PersonaCategory,
-          color: persona.color,
-          icon: persona.icon,
-        });
-      }
-    } catch (error) {
-      console.error('Error importing personas:', error);
-      setError('Failed to import personas');
-    }
-  };
 
-  const handleExportPersonas = () => {
-    // This is handled by the CategoryManager component
-    console.log('Personas exported successfully');
-  };
 
   // Initialize with default persona on load
   useEffect(() => {
@@ -295,9 +247,7 @@ const App: React.FC = () => {
           onPersonaEdit={handleEditPersona}
           onPersonaDelete={handleDeletePersona}
           onToggleCollapse={() => setSidebarCollapsed(!settings.sidebarCollapsed)}
-          onImportPersonas={handleImportPersonas}
-          onExportPersonas={handleExportPersonas}
-          onCloudSync={handleCloudSync}
+
         />
       )}
 
@@ -373,13 +323,7 @@ const App: React.FC = () => {
         onSetDefault={handleSetDefaultPersona}
       />
 
-      {cloudSyncOpen && (
-        <CloudSync
-          personas={personas}
-          onImportPersonas={handleImportFromCloud}
-          onClose={handleCloseCloudSync}
-        />
-      )}
+
     </div>
   );
 };

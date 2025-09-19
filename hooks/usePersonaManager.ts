@@ -3,6 +3,16 @@ import { Persona, PersonaFormData, PersonaCategory, StorageData } from '../types
 
 const STORAGE_KEY = 'alexi-assistant-data';
 
+// Configuration API
+const getApiBaseUrl = () => {
+  // En développement local, utiliser le serveur local s'il est disponible
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3001/api';
+  }
+  // En production, utiliser le serveur Railway
+  return 'https://alexi-assistant-proxy-production.up.railway.app/api';
+};
+
 // Default personas that come with the app
 const DEFAULT_PERSONAS: Persona[] = [
   {
@@ -101,55 +111,148 @@ export const usePersonaManager = () => {
   const [defaultPersonaId, setDefaultPersonaId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load data from localStorage
-  const loadData = useCallback(() => {
+  // Fonctions pour communiquer avec le serveur
+  const loadFromServer = useCallback(async (): Promise<StorageData | null> => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      let defaultId = 'assistant-locataire'; // Assistant locataire par défaut
+      console.log('🔄 Tentative de chargement depuis le serveur...');
+      const response = await fetch(`${getApiBaseUrl()}/personas`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Données chargées depuis le serveur:', data.personas?.length || 0, 'personas');
+        return data;
+      } else {
+        console.warn('⚠️ Serveur a répondu avec erreur:', response.status);
+      }
+    } catch (error) {
+      console.warn('⚠️ Serveur indisponible, utilisation localStorage:', error);
+    }
+    return null;
+  }, []);
 
-      // Check for stored default persona preference
+  const saveToServer = useCallback(async (data: StorageData): Promise<boolean> => {
+    try {
+      console.log('💾 Tentative de sauvegarde sur le serveur...');
+      const response = await fetch(`${getApiBaseUrl()}/personas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        console.log('✅ Données sauvegardées sur le serveur');
+        return true;
+      } else {
+        console.warn('⚠️ Erreur sauvegarde serveur:', response.status);
+      }
+    } catch (error) {
+      console.warn('⚠️ Sauvegarde serveur échouée, utilisation localStorage:', error);
+    }
+    return false;
+  }, []);
+
+  // Load data with server-first approach
+  const loadData = useCallback(async () => {
+    try {
+      let defaultId = 'assistant-locataire'; // Assistant locataire par défaut
       const storedDefaultId = localStorage.getItem('alexi-default-persona');
 
-      if (stored) {
-        const data: StorageData = JSON.parse(stored);
+      // 1. Essayer de charger depuis le serveur
+      const serverData = await loadFromServer();
 
-        // Utiliser TOUS les personas sauvegardés (par défaut ET personnalisés)
-        let allPersonas = data.personas;
-
-        // Si aucun persona sauvegardé, utiliser les personas par défaut
-        if (!allPersonas || allPersonas.length === 0) {
-          allPersonas = DEFAULT_PERSONAS;
-        }
+      if (serverData && serverData.personas?.length > 0) {
+        console.log('📊 Utilisation des données du serveur');
 
         // Use stored default ID if it exists and is valid
-        if (storedDefaultId && allPersonas.find(p => p.id === storedDefaultId)) {
+        if (storedDefaultId && serverData.personas.find(p => p.id === storedDefaultId)) {
           defaultId = storedDefaultId;
-        } else if (data.defaultPersonaId && allPersonas.find(p => p.id === data.defaultPersonaId)) {
-          defaultId = data.defaultPersonaId;
+        } else if (serverData.defaultPersonaId && serverData.personas.find(p => p.id === serverData.defaultPersonaId)) {
+          defaultId = serverData.defaultPersonaId;
         }
 
         // Update isDefault flags
-        const updatedPersonas = allPersonas.map(p => ({
+        const updatedPersonas = serverData.personas.map(p => ({
           ...p,
           isDefault: p.id === defaultId,
         }));
 
         setPersonas(updatedPersonas);
         setDefaultPersonaId(defaultId);
-      } else {
-        // First time setup
-        const initialPersonas = DEFAULT_PERSONAS.map(p => ({
-          ...p,
-          isDefault: p.id === defaultId,
-        }));
 
-        setPersonas(initialPersonas);
-        setDefaultPersonaId(defaultId);
-        saveData(initialPersonas, defaultId);
+        // Synchroniser vers localStorage comme cache
+        const cacheData: StorageData = {
+          personas: updatedPersonas,
+          defaultPersonaId: defaultId,
+          chatSessions: [],
+          settings: { sidebarCollapsed: false },
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cacheData));
         localStorage.setItem('alexi-default-persona', defaultId);
+
+        return;
       }
+
+      // 2. Fallback vers localStorage
+      console.log('📱 Fallback vers localStorage');
+      const stored = localStorage.getItem(STORAGE_KEY);
+
+      if (stored) {
+        const localData: StorageData = JSON.parse(stored);
+
+        if (localData.personas && localData.personas.length > 0) {
+          // Use stored default ID if it exists and is valid
+          if (storedDefaultId && localData.personas.find(p => p.id === storedDefaultId)) {
+            defaultId = storedDefaultId;
+          } else if (localData.defaultPersonaId && localData.personas.find(p => p.id === localData.defaultPersonaId)) {
+            defaultId = localData.defaultPersonaId;
+          }
+
+          // Update isDefault flags
+          const updatedPersonas = localData.personas.map(p => ({
+            ...p,
+            isDefault: p.id === defaultId,
+          }));
+
+          setPersonas(updatedPersonas);
+          setDefaultPersonaId(defaultId);
+
+          // Essayer de synchroniser vers le serveur
+          const syncData: StorageData = {
+            personas: updatedPersonas,
+            defaultPersonaId: defaultId,
+            chatSessions: [],
+            settings: { sidebarCollapsed: false },
+          };
+          await saveToServer(syncData);
+
+          return;
+        }
+      }
+
+      // 3. Utiliser les personas par défaut
+      console.log('🔧 Initialisation avec personas par défaut');
+      const initialPersonas = DEFAULT_PERSONAS.map(p => ({
+        ...p,
+        isDefault: p.id === defaultId,
+      }));
+
+      setPersonas(initialPersonas);
+      setDefaultPersonaId(defaultId);
+
+      // Sauvegarder les défauts
+      const defaultData: StorageData = {
+        personas: initialPersonas,
+        defaultPersonaId: defaultId,
+        chatSessions: [],
+        settings: { sidebarCollapsed: false },
+      };
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultData));
+      localStorage.setItem('alexi-default-persona', defaultId);
+      await saveToServer(defaultData);
+
     } catch (error) {
-      console.error('Error loading persona data:', error);
+      console.error('❌ Erreur chargement personas:', error);
+      // Fallback complet vers personas par défaut
       const fallbackPersonas = DEFAULT_PERSONAS.map(p => ({
         ...p,
         isDefault: p.id === 'assistant-locataire',
@@ -159,10 +262,10 @@ export const usePersonaManager = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadFromServer, saveToServer]);
 
-  // Save data to localStorage
-  const saveData = useCallback((personasToSave: Persona[], defaultId: string | null) => {
+  // Save data to both server and localStorage
+  const saveData = useCallback(async (personasToSave: Persona[], defaultId: string | null) => {
     try {
       const data: StorageData = {
         personas: personasToSave,
@@ -172,11 +275,16 @@ export const usePersonaManager = () => {
           sidebarCollapsed: false,
         },
       };
+
+      // Sauvegarder en localStorage (cache local)
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+      // Essayer de sauvegarder sur le serveur
+      await saveToServer(data);
     } catch (error) {
-      console.error('Error saving persona data:', error);
+      console.error('❌ Erreur sauvegarde personas:', error);
     }
-  }, []);
+  }, [saveToServer]);
 
   // Generate unique ID
   const generateId = useCallback(() => {
@@ -201,8 +309,8 @@ export const usePersonaManager = () => {
 
     const updatedPersonas = [...personas, newPersona];
     setPersonas(updatedPersonas);
-    saveData(updatedPersonas, defaultPersonaId);
-    
+    await saveData(updatedPersonas, defaultPersonaId);
+
     return newPersona;
   }, [personas, defaultPersonaId, generateId, saveData]);
 
@@ -220,8 +328,8 @@ export const usePersonaManager = () => {
     });
 
     setPersonas(updatedPersonas);
-    saveData(updatedPersonas, defaultPersonaId);
-    
+    await saveData(updatedPersonas, defaultPersonaId);
+
     const updatedPersona = updatedPersonas.find(p => p.id === id);
     if (!updatedPersona) {
       throw new Error('Persona not found');
@@ -243,7 +351,7 @@ export const usePersonaManager = () => {
 
     const updatedPersonas = personas.filter(p => p.id !== id);
     setPersonas(updatedPersonas);
-    saveData(updatedPersonas, defaultPersonaId);
+    await saveData(updatedPersonas, defaultPersonaId);
   }, [personas, defaultPersonaId, saveData]);
 
   // Set default persona
@@ -261,7 +369,7 @@ export const usePersonaManager = () => {
 
     setPersonas(updatedPersonas);
     setDefaultPersonaId(id);
-    saveData(updatedPersonas, id);
+    await saveData(updatedPersonas, id);
 
     // Store default persona preference separately for quick access
     try {
@@ -290,8 +398,8 @@ export const usePersonaManager = () => {
 
     const updatedPersonas = [...personas, duplicatedPersona];
     setPersonas(updatedPersonas);
-    saveData(updatedPersonas, defaultPersonaId);
-    
+    await saveData(updatedPersonas, defaultPersonaId);
+
     return duplicatedPersona;
   }, [personas, defaultPersonaId, generateId, saveData]);
 
